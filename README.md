@@ -16,15 +16,16 @@
    *(When prompted, fill in the required client information.)*
 8. Run `php artisan passport:install`. (Run this first if step 7 doesn’t work)
 9. Open 3 different terminals to run the following three commands.
-10. Navigate to the Python directory:
+10. Run `pip install -r requirements.txt`. 
+11. Navigate to the Python directory:
 
     `cd app/python`
-11. Run the OCR API script:
+12. Run the OCR API script:
 
     `python ocr_api.py`
-12. Run the frontend dev server:
+13. Run the frontend dev server:
 
     `npm run dev`
-13. Start the Laravel development server:
+14. Start the Laravel development server:
 
     `php artisan serve`
