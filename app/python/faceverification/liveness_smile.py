@@ -5,8 +5,12 @@ import json
 import os
 import datetime
 import mediapipe as mp
+from mediapipe.tasks import python
+from mediapipe.tasks.python import vision
 
 def detect_smile(image_path, output_path):
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    MODEL_PATH = os.path.join(BASE_DIR, "face_landmarker.task")
     # Load the image
     image = cv2.imread(image_path)
     if image is None:
@@ -16,9 +20,6 @@ def detect_smile(image_path, output_path):
     session_id = os.path.basename(image_path).split('_')[0]
 
     try:
-        # Initialize MediaPipe Face Mesh
-        mp_face_mesh = mp.solutions.face_mesh
-        
         # Define mouth landmark indices
         # Upper lip: 13, 14, 312
         # Lower lip: 17, 16, 15
@@ -26,22 +27,29 @@ def detect_smile(image_path, output_path):
         LOWER_LIP_INDICES = [17, 16, 15]
         SMILE_THRESHOLD = 0.3  # Adjust as needed
 
-        with mp_face_mesh.FaceMesh(
-            static_image_mode=True,
-            max_num_faces=1,
-            min_detection_confidence=0.5) as face_mesh:
+        # Initialize FaceLandmarker
+        base_options = python.BaseOptions(model_asset_path=MODEL_PATH)
+        print(MODEL_PATH)
+        options = vision.FaceLandmarkerOptions(
+            base_options=base_options,
+            num_faces=1,
+            min_face_detection_confidence=0.5)
+        
+        with vision.FaceLandmarker.create_from_options(options) as landmarker:
+            # Convert image to MediaPipe Image format
+            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
             
-            image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            results = face_mesh.process(image_rgb)
+            # Detect face landmarks
+            results = landmarker.detect(mp_image)
 
-            if not results.multi_face_landmarks:
+            if not results.face_landmarks:
                 print("No faces detected in smile check")
                 return False
 
             # Get first face landmarks
-            face_landmarks = results.multi_face_landmarks[0]
+            face_landmarks = results.face_landmarks[0]
             h, w, _ = image.shape
-            landmarks = np.array([(lm.x * w, lm.y * h) for lm in face_landmarks.landmark])
+            landmarks = np.array([(lm.x * w, lm.y * h) for lm in face_landmarks])
 
             # Calculate mouth width to height ratio for smile detection
             upper_lip_points = [landmarks[idx] for idx in UPPER_LIP_INDICES]

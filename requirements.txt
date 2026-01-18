@@ -10,9 +10,9 @@ sounddevice
 cycler
 kiwisolver
 matplotlib
-numpy<2  # Ensure compatibility with MediaPipe
+numpy<2
 opencv-python
-mediapipe
+mediapipe==0.10.31
 Pillow
 pyparsing
 pytesseract
@@ -26,3 +26,5 @@ torchvision
 torchaudio
 pyhanko 
 pyhanko-certvalidator
+flask
+pikepdf
