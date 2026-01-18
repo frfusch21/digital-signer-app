@@ -60,7 +60,7 @@ class NikVerificationController extends Controller
             $imageName = $request->file('id_card_image')->getClientOriginalName();
 
             $client = new \GuzzleHttp\Client();
-            $response = $client->post('http://127.0.0.1:5001/extract-ktp', [
+            $response = $client->post('http://127.0.0.1:5000/extract-ktp', [
                 'multipart' => [
                     [
                         'name' => 'id_card_image',
