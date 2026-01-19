@@ -24,18 +24,7 @@ Make sure the following are installed on your system:
    ```
    storage/app/firebase/
    ```
-2. Place the following **Certificate Authority (CA)** files into:
-
-   ```
-   storage/app/private/ca/
-   ```
-
-   * `ca.csr`
-   * `ca.key`
-   * `ca.crt`
-
-   > ℹ️ Create the directory if it does not exist.
-   >
+2. Place the **env file** root directory
 
 ## 🔐 OpenSSL Configuration (Required – Windows / XAMPP)
 
@@ -108,6 +97,8 @@ Make sure the following are installed on your system:
 ---
 
 ## 🐍 Python Services Setup
+### Python version
+This project is tested with Python 3.12.
 
 9. Open  **two (2) separate terminal windows** .
 10. Install Python dependencies:
