@@ -12,6 +12,8 @@ class RegistrationStepController extends Controller
     {
         $step = session('registration_step', 1); // Default to step 1 if not set
 
+        $requestedStep = (int) $request->route('step');
+
         // Define the step-to-route mapping
         $routes = [
             1 => 'register',
@@ -22,6 +24,10 @@ class RegistrationStepController extends Controller
         ];
 
         if (isset($routes[$step]) && Route::has($routes[$step])) {
+            return redirect()->route($routes[$step]);
+        }
+        
+        if($requestedStep !== $step){
             return redirect()->route($routes[$step]);
         }
 
