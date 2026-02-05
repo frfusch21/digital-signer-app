@@ -11,14 +11,17 @@ use App\Mail\OtpMail;
 use App\Http\Middleware\CheckSession;
 use Illuminate\Support\Facades\Log;
 use App\Services\KeyManagementService;
+use App\Services\VerificationExperimentLogger;
 
 class OtpController extends Controller
 {
     protected $keyManagementService;
+    protected $experimentLogger;
 
-    public function __construct(KeyManagementService $keyManagementService)
+    public function __construct(KeyManagementService $keyManagementService, VerificationExperimentLogger $experimentLogger)
     {
         $this->keyManagementService = $keyManagementService;
+        $this->experimentLogger = $experimentLogger;
     }
 
     public function sendOtp(Request $request)
@@ -83,6 +86,8 @@ class OtpController extends Controller
     
     public function verifyOtp(Request $request)
     {
+        $startedAt = microtime(true);
+
         $request->validate([
             'otp' => 'required|array',
             'otp.*' => 'digits:1'
@@ -93,6 +98,7 @@ class OtpController extends Controller
     
         if (!isset($registrationData['email'], $registrationData['raw_password'])) {
             session()->flash('error', 'Session expired. Please request a new OTP.');
+            $this->logOtpAttempt($request, false, 'session_expired', $startedAt);
             return back();
         }
     
@@ -100,6 +106,7 @@ class OtpController extends Controller
     
         if (User::where('email', $email)->exists()) {
             session()->flash('error', 'This email is already registered.');
+            $this->logOtpAttempt($request, false, 'email_already_registered', $startedAt);
             return redirect()->route('register.check');
         }
     
@@ -107,11 +114,13 @@ class OtpController extends Controller
     
         if (!$otpRecord) {
             session()->flash('error', 'Invalid OTP. Please try again.');
+            $this->logOtpAttempt($request, false, 'invalid_otp', $startedAt);
             return back();
         }
     
         if (Carbon::now()->gt($otpRecord->expires_at)) {
             session()->flash('error', 'OTP has expired. Request a new one.');
+            $this->logOtpAttempt($request, false, 'otp_expired', $startedAt);
             return back();
         }
     
@@ -129,13 +138,34 @@ class OtpController extends Controller
     
             $otpRecord->delete();
             session()->flash('success', 'OTP verified successfully.');
+            $this->logOtpAttempt($request, true, null, $startedAt);
             return redirect()->route('ocr.file');
     
         } catch (\Exception $e) {
             Log::error('Key/Certificate generation error: ' . $e->getMessage());
             session()->flash('error', 'Failed to complete registration. Please try again.');
+            $this->logOtpAttempt($request, false, 'key_generation_failed', $startedAt);
             return back();
         }
     }
     
+
+
+    private function logOtpAttempt(Request $request, bool $passed, ?string $failureCause, float $startedAt): void
+    {
+        $isLegitimate = $request->input('is_legitimate');
+        $isLegitimate = $isLegitimate === null ? null : filter_var($isLegitimate, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+
+        $this->experimentLogger->log([
+            'method' => 'otp',
+            'scenario' => $request->input('scenario', 'normal'),
+            'is_legitimate' => $isLegitimate,
+            'verification_passed' => $passed,
+            'completion_time_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+            'failure_cause' => $failureCause,
+            'metadata' => [
+                'registration_step' => session('registration_step'),
+            ],
+        ]);
+    }
 }

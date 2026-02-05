@@ -1,0 +1,62 @@
+[
+  {
+    "attempt_id": "OTP-001",
+    "method": "otp",
+    "scenario": "compromised_channel",
+    "is_legitimate": false,
+    "verification_passed": true,
+    "attack_succeeded": true,
+    "completion_time_ms": 12100,
+    "failure_cause": null
+  },
+  {
+    "attempt_id": "OTP-002",
+    "method": "otp",
+    "scenario": "normal",
+    "is_legitimate": true,
+    "verification_passed": true,
+    "attack_succeeded": false,
+    "completion_time_ms": 9800,
+    "failure_cause": null
+  },
+  {
+    "attempt_id": "BIO-001",
+    "method": "biometric",
+    "scenario": "presentation_attack",
+    "is_legitimate": false,
+    "verification_passed": false,
+    "attack_succeeded": false,
+    "completion_time_ms": 13400,
+    "failure_cause": "liveness_failed"
+  },
+  {
+    "attempt_id": "BIO-002",
+    "method": "biometric",
+    "scenario": "normal",
+    "is_legitimate": true,
+    "verification_passed": true,
+    "attack_succeeded": false,
+    "completion_time_ms": 15700,
+    "failure_cause": null
+  },
+  {
+    "attempt_id": "HYB-001",
+    "method": "hybrid",
+    "scenario": "presentation_attack",
+    "is_legitimate": false,
+    "verification_passed": false,
+    "attack_succeeded": false,
+    "completion_time_ms": 17300,
+    "failure_cause": "otp_mismatch"
+  },
+  {
+    "attempt_id": "HYB-002",
+    "method": "hybrid",
+    "scenario": "normal",
+    "is_legitimate": true,
+    "verification_passed": true,
+    "attack_succeeded": false,
+    "completion_time_ms": 16600,
+    "failure_cause": null
+  }
+]

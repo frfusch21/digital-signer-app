@@ -10,9 +10,16 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
+use App\Services\VerificationExperimentLogger;
 
 class FaceVerificationController extends Controller
 {
+    protected $experimentLogger;
+
+    public function __construct(VerificationExperimentLogger $experimentLogger)
+    {
+        $this->experimentLogger = $experimentLogger;
+    }
     /**
      * Start a verification session
      * 
@@ -56,6 +63,8 @@ class FaceVerificationController extends Controller
      */
     public function detectFace(Request $request)
     {
+        $startedAt = microtime(true);
+
         try {
             $request->validate([
                 'image' => 'required|image|max:5120', // 5MB max
@@ -73,6 +82,8 @@ class FaceVerificationController extends Controller
                 // Cleanup on invalid session
                 $this->cleanupSessionFiles($sessionId);
                 
+                $this->logBiometricAttempt($request, false, 'invalid_session', $startedAt, ['phase' => 'detect_face']);
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid or expired session',
@@ -100,6 +111,8 @@ class FaceVerificationController extends Controller
                 $this->cleanupSessionFiles($sessionId);
                 
                 Log::error('Image failed to save: ' . $fullImagePath);
+                $this->logBiometricAttempt($request, false, 'image_not_saved', $startedAt, ['phase' => 'detect_face']);
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Image upload failed',
@@ -197,6 +210,8 @@ class FaceVerificationController extends Controller
      */
     public function verifyLiveness(Request $request)
     {
+        $startedAt = microtime(true);
+
         try {
             $request->validate([
                 'image' => 'required|image|max:5120', // 5MB max
@@ -216,6 +231,8 @@ class FaceVerificationController extends Controller
                 // Cleanup on invalid session
                 $this->cleanupSessionFiles($sessionId);
                 
+                $this->logBiometricAttempt($request, false, 'invalid_session', $startedAt, ['phase' => 'verify_liveness']);
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid or expired session',
@@ -228,6 +245,8 @@ class FaceVerificationController extends Controller
                 // Cleanup on sequence error
                 $this->cleanupSessionFiles($sessionId);
                 
+                $this->logBiometricAttempt($request, false, 'initial_face_missing', $startedAt, ['phase' => 'verify_liveness']);
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Initial face detection must be completed first',
@@ -240,6 +259,8 @@ class FaceVerificationController extends Controller
                 // Cleanup on sequence error
                 $this->cleanupSessionFiles($sessionId);
                 
+                $this->logBiometricAttempt($request, false, 'blink_prerequisite_missing', $startedAt, ['phase' => 'verify_liveness']);
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Blink challenge must be completed first',
@@ -249,6 +270,8 @@ class FaceVerificationController extends Controller
                 // Cleanup on sequence error
                 $this->cleanupSessionFiles($sessionId);
                 
+                $this->logBiometricAttempt($request, false, 'turn_head_prerequisite_missing', $startedAt, ['phase' => 'verify_liveness']);
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Turn head challenge must be completed first',
@@ -278,6 +301,8 @@ class FaceVerificationController extends Controller
                 $this->cleanupSessionFiles($sessionId);
                 
                 Log::error('Challenge image failed to save: ' . $fullImagePath);
+                $this->logBiometricAttempt($request, false, 'image_not_saved', $startedAt, ['phase' => 'verify_liveness']);
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Image upload failed',
@@ -305,6 +330,8 @@ class FaceVerificationController extends Controller
                 $this->cleanupSessionFiles($sessionId);
                 
                 Log::error('Liveness verification error:', ['error' => implode("\n", $output)]);
+                $this->logBiometricAttempt($request, false, 'liveness_check_failed', $startedAt, ['challenge_type' => $challengeType, 'phase' => 'verify_liveness']);
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Liveness verification failed for ' . $challengeType,
@@ -335,6 +362,8 @@ class FaceVerificationController extends Controller
             }
             
             if ($isCompleted) {
+                $this->logBiometricAttempt($request, true, null, $startedAt, ['challenge_type' => $challengeType, 'phase' => 'verify_liveness']);
+
                 return response()->json([
                     'success' => true,
                     'message' => 'All liveness checks completed successfully',
@@ -352,6 +381,8 @@ class FaceVerificationController extends Controller
             Log::error('Unexpected error in verifyLiveness: ' . $e->getMessage());
             $this->cleanupSessionFiles($request->input('session_id'));
             
+            $this->logBiometricAttempt($request, false, 'unexpected_error', $startedAt, ['phase' => 'verify_liveness']);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Unexpected error during liveness verification',
@@ -368,6 +399,8 @@ class FaceVerificationController extends Controller
      */
     public function completeVerification(Request $request)
     {
+        $startedAt = microtime(true);
+
         $request->validate([
             'session_id' => 'required|string'
         ]);
@@ -380,6 +413,8 @@ class FaceVerificationController extends Controller
             ->first();
             
         if (!$session) {
+            $this->logBiometricAttempt($request, false, 'invalid_session', $startedAt, ['phase' => 'complete_verification']);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid or expired session',
@@ -389,6 +424,8 @@ class FaceVerificationController extends Controller
         
         // Check if all challenges were completed
         if (!$session->allChallengesCompleted()) {
+            $this->logBiometricAttempt($request, false, 'incomplete_challenges', $startedAt, ['phase' => 'complete_verification']);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Not all verification challenges have been completed',
@@ -407,6 +444,8 @@ class FaceVerificationController extends Controller
             'expires_at' => now()->addDay() // Verification valid for 24 hours
         ]);
         
+        $this->logBiometricAttempt($request, true, null, $startedAt, ['phase' => 'complete_verification']);
+
         return response()->json([
             'success' => true,
             'message' => 'Face verification process completed successfully',
@@ -562,4 +601,27 @@ class FaceVerificationController extends Controller
     }
 
     
+
+    /**
+     * @param array<string, mixed> $metadata
+     */
+    private function logBiometricAttempt(Request $request, bool $passed, ?string $failureCause, float $startedAt, array $metadata = []): void
+    {
+        $isLegitimate = $request->input('is_legitimate');
+        $isLegitimate = $isLegitimate === null ? null : filter_var($isLegitimate, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+
+        $this->experimentLogger->log([
+            'method' => $request->input('verification_method', 'biometric'),
+            'scenario' => $request->input('scenario', 'normal'),
+            'is_legitimate' => $isLegitimate,
+            'verification_passed' => $passed,
+            'completion_time_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+            'failure_cause' => $failureCause,
+            'metadata' => array_merge([
+                'session_id' => $request->input('session_id'),
+                'challenge_type' => $request->input('challenge_type'),
+            ], $metadata),
+        ]);
+    }
+
 }
