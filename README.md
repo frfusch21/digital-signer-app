@@ -152,3 +152,29 @@ Once all services are running:
 * Backend API is available via Laravel
 * OCR & Signer service is running via Python
 * Frontend is accessible via the dev server
+
+---
+
+## 📊 Verification Experiment Analysis (for research)
+
+After running migrations, verification flows automatically log experiment attempts into `verification_attempts`.
+
+Analyze collected records directly from the database:
+
+```bash
+php artisan analysis:verification-report --source=db
+```
+
+Analyze a JSON dataset manually:
+
+```bash
+php artisan analysis:verification-report docs/sample-verification-attempts.json --source=json
+```
+
+Machine-readable output:
+
+```bash
+php artisan analysis:verification-report --source=db --format=json
+```
+
+See `docs/verification-analysis.md` for schema, filters, and experiment labeling guidance.
